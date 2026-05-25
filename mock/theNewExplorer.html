@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The New Explorer - HMI Mock</title>
+  <style>
+    html { font-size: 55%; }
+    body {
+      .map {
+        background: radial-gradient(circle at top left, #1d4178, #0b1632 80%);
+        border-radius: 18px;
+        height: 100%;
+        display: grid;
+        grid-template-columns: 2.4fr 0.4fr;
+        gap: 10px;
+        padding: 10px;
+      }
+      .map-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+        align-items: start;
+      }
+      .map .tile {
+        background: rgba(255,255,255,0.06);
+        border: none;
+        border-radius: 10px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        padding: 6px;
+        position: relative;
+        min-height: 0;
+      }
+    header h1 {
+      font-size: 1.2rem;
+      margin: 0;
+      letter-spacing: 0.03em;
+    }
+    header .status {
+      display: flex;
+      gap: 18px;
+      font-size: 0.95rem;
+      color: #d8e7ff;
+    }
+    .panel {
+      border-radius: 18px;
+      background: rgba(6, 23, 45, 0.92);
+      box-shadow: 0 8px 24px rgba(0,0,0,.25);
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 18px;
+      overflow: hidden;
+    }
+    .panel h2 {
+      margin: 0 0 14px;
+      font-size: 1rem;
+      letter-spacing: 0.01em;
+      color: #7ec0ff;
+    }
+    .map {
+      background: radial-gradient(circle at top left, #1d4178, #0b1632 80%);
+      border-radius: 18px;
+      height: 100%;
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 12px;
+      padding: 14px;
+    }
+    .header-right {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.72rem;
+      color: #cfe9ff;
+      justify-content: flex-end;
+      white-space: nowrap;
+    }
+    .header-right > div { text-align: right; }
+    .header-right .header-item { font-size: 0.72rem; color: #bfe6ff; }
+    .header-right .top-status { font-size: 0.70rem; color: #9fcfff; }
+    .header-right .log-toggle { display: flex; align-items: center; gap: 6px; }
+    .header-right .log-toggle span { color: #9fd2ff; font-size: 0.66rem; }
+    .header-right .ship-status { font-size: 0.68rem; color: #b9e3ff; }
+    .hex-tile .ship-icon {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 4rem;
+      line-height: 1;
+      pointer-events: none;
+      text-shadow: 0 0 8px rgba(255,255,255,0.55);
+    }
+    .hex-tile.ship {
+      border-color: rgba(255,255,255,0.7);
+      box-shadow: inset 0 0 0 2px rgba(126, 192, 255, 0.55);
+    }
+    .hex-tile .ship-icon {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 3rem;
+      line-height: 1;
+      pointer-events: none;
+      text-shadow: 0 0 8px rgba(255,255,255,0.55);
+    }
+    .toggle-btn {
+      padding: 6px 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(126,192,255,0.12);
+      background: rgba(49,91,176,0.12);
+      color: #dbe9ff;
+      cursor: pointer;
+      font-size: 0.72rem;
+      transition: transform .12s ease, background .12s ease;
+    }
+    .toggle-btn:hover {
+      transform: translateY(-1px);
+      background: rgba(126,192,255,0.22);
+    }
+    /* Spiel-Log entfernt */
+    .app {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 12px;
+      grid-auto-rows: minmax(0, auto);
+      align-items: start;
+      height: calc(100vh - 24px);
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      grid-column: 1 / -1;
+    }
+    .side-menu {
+      grid-column: 1 / 2;
+    }
+    .main-area {
+      grid-column: 2 / 3;
+    }
+    .world-map {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 18px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100%;
+    }
+    .world-map svg {
+      width: 100%;
+      height: auto;
+      max-height: 100%;
+    }
+    .world-map .map-shadow {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(255,255,255,0.05), transparent 45%);
+      pointer-events: none;
+    }
+    .world-map .fullscreen-btn {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      border: none;
+      background: rgba(126, 192, 255, 0.18);
+      color: #f1f4f8;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      transition: background .16s ease;
+      z-index: 2;
+    }
+    .world-map .fullscreen-btn:hover {
+      background: rgba(126, 192, 255, 0.26);
+    }
+    .hex-map {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 12px;
+      box-sizing: border-box;
+      align-items: center;
+    }
+    .hex-row {
+      display: flex;
+      gap: 2px;
+      justify-content: center;
+    }
+    .hex-row.offset {
+      margin-left: 22px;
+    }
+    .hex-tile {
+      width: 44px;
+      height: 52px;
+      position: relative;
+      background: linear-gradient(180deg, rgba(62,122,185,0.95), rgba(22,58,91,0.95));
+      clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+      border: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #e5f4ff;
+      font-size: 0.62rem;
+      text-align: center;
+      line-height: 1.2;
+      cursor: pointer;
+      transition: transform .16s ease, background .16s ease, border-color .16s ease;
+      padding: 4px;
+      box-sizing: border-box;
+    }
+    .hex-tile .ship-icon {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 1rem;
+      pointer-events: none;
+    }
+    .hex-tile.ship {
+      border-color: rgba(255,255,255,0.5);
+      box-shadow: inset 0 0 0 1px rgba(126, 192, 255, 0.35);
+    }
+    .hex-tile:hover {
+      transform: translateY(-2px);
+      background: linear-gradient(180deg, rgba(94,158,218,0.98), rgba(30,72,117,0.98));
+      border-color: rgba(255,255,255,0.18);
+    }
+    .hex-tile[data-terrain="land"] {
+      background: linear-gradient(180deg, #3a7d4d, #24553d);
+    }
+    .hex-tile[data-terrain="water"] {
+      background: linear-gradient(180deg, #0f2f5a, #06203d);
+    }
+    .hex-tile[data-terrain="mountain"] {
+      background: linear-gradient(180deg, #7c5d31, #4f3b20);
+    }
+    .hex-tile[data-terrain="port"] {
+      background: linear-gradient(180deg, #6a85b2, #3a4d6f);
+    }
+    .hex-tile.active {
+      box-shadow: 0 0 0 2px rgba(126, 192, 255, 0.45);
+      border-color: rgba(126, 192, 255, 0.7);
+    }
+    .tile.selected {
+      border-color: rgba(126, 192, 255, 0.35);
+      background: rgba(255,255,255,0.06);
+    }
+    .page-fullscreen .app {
+      min-height: 100vh;
+      padding: 8px;
+    }
+    .fullscreen-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(6, 23, 45, 0.98);
+      z-index: 999;
+      padding: 22px;
+      box-sizing: border-box;
+    }
+    .fullscreen-overlay.active {
+      display: block;
+    }
+    .fullscreen-view {
+      width: 100%;
+      height: 100%;
+      background: rgba(255,255,255,0.04);
+      border-radius: 18px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      padding: 18px;
+      box-sizing: border-box;
+    }
+    .fullscreen-view svg {
+      width: 100%;
+      height: auto;
+      max-height: 100%;
+    }
+    .back-btn {
+      position: absolute;
+      top: 22px;
+      left: 22px;
+      z-index: 1000;
+      border: none;
+      border-radius: 14px;
+      background: #1f3e76;
+      color: #f1f4f8;
+      padding: 12px 16px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      box-shadow: 0 10px 26px rgba(0,0,0,0.32);
+    }
+    .map-grid {
+      display: grid;
+      grid-template-rows: auto auto auto;
+      gap: 10px;
+    }
+    .map .tile {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      padding: 8px;
+      position: relative;
+      min-height: 0;
+    }
+    .tile span {
+      font-size: 0.8rem;
+    }
+    .tile .label {
+      color: #b8d6ff;
+      font-weight: 600;
+    }
+    .tile .value {
+      color: #f1f4f8;
+      margin-top: 4px;
+    }
+    .side-menu {
+      display: grid;
+      gap: 14px;
+      grid-template-rows: auto 1fr;
+    }
+    .resource-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .resource {
+      flex: 1;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 12px;
+      min-width: 0;
+    }
+    .resource label {
+      display: block;
+      font-size: 0.78rem;
+      color: #8bb6ff;
+    }
+    .resource strong {
+      display: block;
+      font-size: 1.05rem;
+      margin-top: 6px;
+    }
+    .actions {
+      display: grid;
+      gap: 10px;
+    }
+    .action-btn {
+      display: block;
+      width: 100%;
+      padding: 14px 16px;
+      background: rgba(49, 91, 176, 0.16);
+      border: 1px solid rgba(126,192,255,0.16);
+      border-radius: 14px;
+      color: #dbe9ff;
+      font-size: 0.95rem;
+      text-align: left;
+      cursor: pointer;
+      transition: transform .16s ease, background .16s ease;
+    }
+    .action-btn:hover {
+      transform: translateY(-1px);
+      background: rgba(126, 192, 255, 0.12);
+    }
+    /* Log styles removed to reduce UI clutter */
+    .panel.small {
+      min-height: 220px;
+    }
+    .panel.half {
+      min-height: 260px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>The New Explorer - HMI Mock</h1>
+      <div class="header-right">
+        <div class="header-item" style="font-size:0.82rem;color:#bfe6ff;">Nation: <strong>Spanien</strong> — Führer: <strong>Kolumbus</strong></div>
+        <div class="top-status">Runde: 12 · Jahr: 1503 · Stimmung: Neutral</div>
+        <div class="header-item" style="font-size:0.78rem;color:#9fcfff;">Flotte: <strong id="fleetCount">5</strong> — Karavellen 3 · Handelsschiffe 2</div>
+        <!-- Spiel-Log entfernt -->
+        <div class="ship-status header-item-full" id="shipStatus">Schiff: Reihe 2, Spalte 2 · Richtung: Still</div>
+      </div>
+    </header>
+
+    <section class="panel side-menu">
+      <h2>Aktionen</h2>
+      <div class="actions" style="margin-top:8px;">
+        <button class="action-btn">Schiff bewegen</button>
+        <button class="action-btn">Kolonie gründen</button>
+        <button class="action-btn">Handel öffnen</button>
+        <button class="action-btn">Kaperbrief</button>
+        <button class="action-btn">Diplomatie</button>
+      </div>
+    </section>
+
+    <section class="panel main-area">
+      <h2>Weltkarte</h2>
+      <div class="map">
+        <div class="world-map">
+          <button class="fullscreen-btn" id="fullscreenBtn" title="Karte maximieren">⤢</button>
+          <div class="map-shadow"></div>
+          <div class="hex-map" id="hexMap"></div>
+        </div>
+        <div class="map-grid">
+          <div id="tileDetails" class="tile selected">
+            <span class="label">Wähle ein Feld</span>
+            <span class="value">Klicke auf ein Hexfeld, um Terrain, Name und Status zu sehen.</span>
+          </div>
+          <div class="tile">
+            <span class="label">Legende</span>
+            <span class="value">Wasser = Meer, Land = Küste/Plantage, Berg = Hindernis, Hafen = Handelsposten</span>
+          </div>
+          <div class="tile">
+            <span class="label">Technik</span>
+            <span class="value">Erstes Ziel: Rasterdaten → Rendering → Interaktion → Vollbild</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- actions moved to left side-menu -->
+
+    <!-- Spiel-Log Sektion entfernt -->
+  </div>
+  <div class="fullscreen-overlay" id="fullscreenOverlay">
+    <button class="back-btn" id="backBtn">← Zurück</button>
+    <div class="fullscreen-view" id="fullscreenView"></div>
+  </div>
+  <script>
+    // Schritt 1: Datenmodell für die Weltkarte
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const fullscreenOverlay = document.getElementById('fullscreenOverlay');
+    const fullscreenView = document.getElementById('fullscreenView');
+    const backBtn = document.getElementById('backBtn');
+    const hexMap = document.getElementById('hexMap');
+    const tileDetails = document.getElementById('tileDetails');
+    const shipStatus = document.getElementById('shipStatus');
+
+    let shipPosition = { row: 1, col: 1 };
+    let shipDirection = 'Still';
+    const tileRows = [
+      [
+        { terrain: 'water', label: 'Atlantischer Ozean', notes: 'Unentdecktes Meer.' },
+        { terrain: 'water', label: 'Riffzone', notes: 'Schiff langsam, Meeresroute.' },
+        { terrain: 'water', label: 'Tiefsee', notes: 'Keine Küste, sichere Passage.' },
+        { terrain: 'water', label: 'Offenes Meer', notes: 'Gute Sicht, hoher Wind.' },
+        { terrain: 'water', label: 'Sturmgebiet', notes: 'Gefährlich für Karavellen.' },
+        { terrain: 'water', label: 'Seefahrt', notes: 'Standardroute der Flotte.' },
+        { terrain: 'water', label: 'Fischgründe', notes: 'Ressourcen: Fisch.' },
+        { terrain: 'water', label: 'Schwarzes Meer', notes: 'Tief, ruhig.' },
+        { terrain: 'water', label: 'Nordstrom', notes: 'Eisgrenze in der Nähe.' },
+        { terrain: 'water', label: 'Flottenroute', notes: 'Sicherer Konvoi.' }
+      ],
+      [
+        { terrain: 'water', label: 'Passage', notes: 'Zugang zur Inselwelt.' },
+        { terrain: 'land', label: 'Hispaniola', notes: 'Hauptinsel der Kolonie.' },
+        { terrain: 'land', label: 'Plantagen', notes: 'Zuckerproduktion aktiv.' },
+        { terrain: 'land', label: 'Piratenküste', notes: 'Gefahr für Handelsschiffe.' },
+        { terrain: 'land', label: 'Dschungel', notes: 'Bewegung langsam.' },
+        { terrain: 'water', label: 'Lagune', notes: 'Schutzraum für Schiffe.' },
+        { terrain: 'water', label: 'Riffbruch', notes: 'Vorsicht: Untiefen.' },
+        { terrain: 'port', label: 'Hafen', notes: 'Handel und Nachschub.' },
+        { terrain: 'water', label: 'Handelsweg', notes: 'Wichtige Route.' },
+        { terrain: 'water', label: 'Schiffsfleet', notes: 'Deine Flotte patrouilliert.' }
+      ],
+      [
+        { terrain: 'land', label: 'Costa Verde', notes: 'Grüne Küste, fruchtbar.' },
+        { terrain: 'land', label: 'Llanos', notes: 'Offenes Grasland.' },
+        { terrain: 'port', label: 'Hafen von Hispaniola', notes: 'Zentraler Umschlagplatz.' },
+        { terrain: 'mountain', label: 'Bergkette', notes: 'Schwer passierbar.' },
+        { terrain: 'land', label: 'Fruchtbares Tal', notes: 'Eignet sich für Siedlungen.' },
+        { terrain: 'land', label: 'Siedlung', notes: 'Koloniezentrum.' },
+        { terrain: 'water', label: 'Flussmündung', notes: 'Frischwasserquelle.' },
+        { terrain: 'water', label: 'Piratengasse', notes: 'Gefahr für Handel.' },
+        { terrain: 'water', label: 'Gezeitenstrom', notes: 'Starker Strand.' },
+        { terrain: 'water', label: 'Küstenschiff', notes: 'Nahverkehr entlang der Küste.' }
+      ],
+      [
+        { terrain: 'land', label: 'Savanne', notes: 'Weite Ebene.' },
+        { terrain: 'mountain', label: 'Gebirge', notes: 'Erschwert Bewegung.' },
+        { terrain: 'land', label: 'Goldmine', notes: 'Ressource: Gold.' },
+        { terrain: 'land', label: 'Siedlungsland', notes: 'Bauplatz für Stadt.' },
+        { terrain: 'land', label: 'Wasserquelle', notes: 'Versorgung für Truppen.' },
+        { terrain: 'water', label: 'Riffpass', notes: 'Enger Durchlass.' },
+        { terrain: 'water', label: 'Seewache', notes: 'Patrouillenposten.' },
+        { terrain: 'water', label: 'Seeweg', notes: 'Hauptverbindung.' },
+        { terrain: 'water', label: 'Karavellenfahrt', notes: 'Fracht verkehrt hier.' },
+        { terrain: 'water', label: 'Marinepatrouille', notes: 'Verteidigt die Küste.' }
+      ],
+      [
+        { terrain: 'water', label: 'Westliche See', notes: 'Offene Ozeanfläche.' },
+        { terrain: 'water', label: 'Sturmwolke', notes: 'Wettergefahr.' },
+        { terrain: 'water', label: 'Segelroute', notes: 'Schnellste Verbindung.' },
+        { terrain: 'water', label: 'Leuchtturm', notes: 'Navigationshilfe.' },
+        { terrain: 'water', label: 'Reliktinsel', notes: 'Möglicher Schatz.' },
+        { terrain: 'water', label: 'Geheimweg', notes: 'Versteckter Durchgang.' },
+        { terrain: 'water', label: 'Landspitze', notes: 'Küstennahe Landmarke.' },
+        { terrain: 'water', label: 'Mündung', notes: 'Ende eines Flusses.' },
+        { terrain: 'water', label: 'Brigantine', notes: 'Kampf- und Handelsschiff.' },
+        { terrain: 'water', label: 'Navigator', notes: 'Expeditionseinheit.' }
+      ]
+    ];
+
+    function createHexTile(tile, rowIndex, colIndex) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'hex-tile';
+      button.dataset.terrain = tile.terrain;
+      button.dataset.row = rowIndex;
+      button.dataset.col = colIndex;
+      button.innerHTML = `<span>${tile.label}</span>`;
+
+      if (shipPosition.row === rowIndex && shipPosition.col === colIndex) {
+        button.classList.add('ship');
+        button.innerHTML += '<span class="ship-icon">⛵</span>';
+      }
+
+      button.addEventListener('click', () => {
+        selectTile(button, tile);
+      });
+
+      return button;
+    }
+
+    function renderHexMap() {
+      hexMap.innerHTML = '';
+      tileRows.forEach((row, rowIndex) => {
+        const rowEl = document.createElement('div');
+        rowEl.className = 'hex-row';
+        if (rowIndex % 2 === 1) {
+          rowEl.classList.add('offset');
+        }
+        row.forEach((tile, colIndex) => rowEl.appendChild(createHexTile(tile, rowIndex, colIndex)));
+        hexMap.appendChild(rowEl);
+      });
+    }
+
+    function selectTile(button, tile) {
+      document.querySelectorAll('.hex-tile.active').forEach(active => active.classList.remove('active'));
+      button.classList.add('active');
+      tileDetails.innerHTML = `
+        <span class="label">${tile.label}</span>
+        <span class="value">Terrain: ${tile.terrain}</span>
+        <span class="value">${tile.notes}</span>
+      `;
+    }
+
+    renderHexMap();
+
+    function moveShip(deltaRow, deltaCol, direction) {
+      const newRow = shipPosition.row + deltaRow;
+      const newCol = shipPosition.col + deltaCol;
+
+      // Row bounds
+      if (newRow < 0 || newRow >= tileRows.length) return;
+      // Ensure the target row is an array and column is within that row
+      if (!Array.isArray(tileRows[newRow]) || newCol < 0 || newCol >= tileRows[newRow].length) return;
+      // Ensure a valid tile exists at destination
+      const destTile = tileRows[newRow][newCol];
+      if (!destTile) return;
+
+      shipPosition = { row: newRow, col: newCol };
+      shipDirection = direction;
+      renderHexMap();
+      updateShipDetails();
+      updateShipStatus();
+    }
+
+    function updateShipDetails() {
+      const shipTile = tileRows[shipPosition.row][shipPosition.col];
+      tileDetails.innerHTML = `
+        <span class="label">Schiffposition</span>
+        <span class="value">${shipTile.label}</span>
+        <span class="value">Terrain: ${shipTile.terrain}</span>
+        <span class="value">Position: Reihe ${shipPosition.row + 1}, Spalte ${shipPosition.col + 1}</span>
+      `;
+    }
+
+    function updateShipStatus() {
+      shipStatus.textContent = `Schiff: Reihe ${shipPosition.row + 1}, Spalte ${shipPosition.col + 1} · Richtung: ${shipDirection}`;
+    }
+
+    window.addEventListener('keydown', (event) => {
+      const key = event.key;
+      if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'a', 'A', 'd', 'D', 'w', 'W', 's', 'S'].includes(key)) {
+        return;
+      }
+
+      event.preventDefault();
+      switch (key) {
+        case 'ArrowLeft':
+        case 'a':
+        case 'A':
+          moveShip(0, -1, 'Links');
+          break;
+        case 'ArrowRight':
+        case 'd':
+        case 'D':
+          moveShip(0, 1, 'Rechts');
+          break;
+        case 'ArrowUp':
+        case 'w':
+        case 'W':
+          moveShip(-1, 0, 'Oben');
+          break;
+        case 'ArrowDown':
+        case 's':
+        case 'S':
+          moveShip(1, 0, 'Unten');
+          break;
+      }
+    });
+
+    updateShipDetails();
+    updateShipStatus();
+
+    fullscreenBtn.addEventListener('click', () => {
+      // Versuch: komplette Seite in den Fullscreen-Modus
+      document.documentElement.requestFullscreen().catch(() => {
+        // Wenn der Browser das blockiert, nutze das Overlay als Fallback
+        fullscreenView.innerHTML = '';
+        const clone = hexMap.cloneNode(true);
+        fullscreenView.appendChild(clone);
+        fullscreenOverlay.classList.add('active');
+      });
+    });
+
+    // Synchronisiere UI mit Fullscreen-Status
+    document.addEventListener('fullscreenchange', () => {
+      if (document.fullscreenElement) {
+        document.body.classList.add('page-fullscreen');
+        // Overlay nicht nötig, die ganze Seite ist fullscreen
+        fullscreenOverlay.classList.remove('active');
+        fullscreenView.innerHTML = '';
+      } else {
+        document.body.classList.remove('page-fullscreen');
+        // Beim Verlassen: Overlay schließen, falls noch offen
+        fullscreenOverlay.classList.remove('active');
+        fullscreenView.innerHTML = '';
+      }
+    });
+
+    backBtn.addEventListener('click', () => {
+      // Wenn wir im Fullscreen sind, zuerst daraus heraus
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {
+          // falls exit fehlschlägt, schließe Overlay als Backup
+          fullscreenOverlay.classList.remove('active');
+          fullscreenView.innerHTML = '';
+        });
+      } else {
+        fullscreenOverlay.classList.remove('active');
+        fullscreenView.innerHTML = '';
+      }
+    });
+  </script>
+</body>
+</html>
